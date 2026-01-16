@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-salesforce-blue: #00A1E0;
+  --color-salesforce-dark-blue: #0176D3;
+  --color-salesforce-navy: #032D60;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-salesforce-blue hover:bg-salesforce-dark-blue text-white font-medium px-4 py-2 rounded-md transition-colors shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-medium px-4 py-2 rounded-md transition-colors shadow-sm;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-slate-200 p-6;
+  }
+
+  .input-field {
+    @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-salesforce-blue focus:border-transparent;
+  }
+}
