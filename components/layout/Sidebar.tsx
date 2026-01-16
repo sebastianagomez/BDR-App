@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CheckSquare, Building2, Users, Repeat, FileText, Linkedin } from 'lucide-react'
+import { LayoutDashboard, CheckSquare, Building2, Users, Repeat, FileText, Linkedin, ListTodo } from 'lucide-react'
 import clsx from 'clsx'
 
 const navigation = [
@@ -12,6 +12,7 @@ const navigation = [
     { name: 'Contacts', href: '/contacts', icon: Users },
     { name: 'Cadences', href: '/cadences', icon: Repeat },
     { name: 'Templates', href: '/templates', icon: FileText },
+    { name: 'To-Do List', href: '/todo', icon: ListTodo },
     { name: 'LinkedIn', href: '/linkedin', icon: Linkedin },
 ]
 

@@ -116,3 +116,17 @@ create policy "Allow all operations for anon" on contact_cadences for all using 
 create policy "Allow all operations for anon" on daily_tasks for all using (true) with check (true);
 create policy "Allow all operations for anon" on templates for all using (true) with check (true);
 create policy "Allow all operations for anon" on linkedin_posts for all using (true) with check (true);
+
+-- PERSONAL TASKS
+create table personal_tasks (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  description text,
+  due_date date,
+  priority text check (priority in ('low', 'medium', 'high')) default 'medium',
+  status text check (status in ('pending', 'completed')) default 'pending',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table personal_tasks enable row level security;
+create policy "Allow all operations for anon" on personal_tasks for all using (true) with check (true);

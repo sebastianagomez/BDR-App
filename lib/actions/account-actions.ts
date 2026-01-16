@@ -91,3 +91,17 @@ export async function updateAccount(id: string, formData: FormData) {
 
     revalidatePath('/accounts')
 }
+
+export async function deleteAccount(id: string) {
+    const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', id)
+
+    if (error) {
+        console.error('Error deleting account:', error)
+        throw new Error('Failed to delete account')
+    }
+
+    revalidatePath('/accounts')
+}

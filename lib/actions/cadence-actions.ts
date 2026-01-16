@@ -2,7 +2,7 @@
 
 import { supabase } from '@/lib/supabase/client'
 import { revalidatePath } from 'next/cache'
-import { addDays } from 'date-fns'
+import { addBusinessDays } from '@/lib/utils/date-utils'
 
 export type CadenceStep = {
     id: string
@@ -124,14 +124,14 @@ export async function assignContactToCadence(contactId: string, cadenceId: strin
     }
 
     // 4. Create first Daily Task
-    const dueDate = addDays(new Date(), firstStep.day_offset)
+    const dueDate = addBusinessDays(new Date(), firstStep.day_offset)
 
     const { error: taskError } = await supabase
         .from('daily_tasks')
         .insert({
             contact_cadence_id: cc.id,
             step_id: firstStep.id,
-            due_date: dueDate.toISOString(),
+            due_date: dueDate.toISOString().split('T')[0], // Store as YYYY-MM-DD
             status: 'pending'
         })
 

@@ -69,6 +69,53 @@ export async function createContact(formData: FormData) {
     revalidatePath('/contacts')
 }
 
+export async function updateContact(id: string, formData: FormData) {
+    const account_id = formData.get('account_id') as string
+    const name = formData.get('name') as string
+    const title = formData.get('title') as string
+    const email = formData.get('email') as string
+    const phone = formData.get('phone') as string
+    const linkedin_url = formData.get('linkedin_url') as string
+    const notes = formData.get('notes') as string
+    const status = formData.get('status') as string
+
+    const { error } = await supabase
+        .from('contacts')
+        .update({
+            account_id,
+            name,
+            title,
+            email,
+            phone,
+            linkedin_url,
+            notes,
+            status
+        })
+        .eq('id', id)
+
+    if (error) {
+        console.error('Error updating contact:', error)
+        throw new Error('Failed to update contact')
+    }
+
+    revalidatePath('/contacts')
+}
+
+export async function deleteContact(id: string) {
+    const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', id)
+
+    if (error) {
+        console.error('Error deleting contact:', error)
+        throw new Error('Failed to delete contact')
+    }
+
+    revalidatePath('/contacts')
+    revalidatePath('/accounts')
+}
+
 export async function importContacts(contacts: any[]) {
     // This expects an array of objects to insert.
     // We need to handle account matching here or assume account_id is provided or derived?

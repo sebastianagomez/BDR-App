@@ -20,7 +20,7 @@ export default async function ContactsPage() {
                 <AddContactWrapper accounts={accounts} />
             </div>
 
-            <ContactList contacts={contacts} cadences={cadences} />
+            <ContactList contacts={contacts} cadences={cadences} accounts={accounts} />
         </div>
     )
 }
