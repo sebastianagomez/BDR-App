@@ -18,7 +18,7 @@ export default async function CadencesPage() {
                 <AddCadenceWrapper templates={templates} />
             </div>
 
-            <CadenceList cadences={cadences} />
+            <CadenceList cadences={cadences} templates={templates} />
         </div>
     )
 }

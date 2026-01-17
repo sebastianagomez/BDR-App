@@ -1,18 +1,20 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { createCadence } from '@/lib/actions/cadence-actions'
+import { useState, useTransition, useEffect } from 'react'
+import { createCadence, updateCadence, Cadence } from '@/lib/actions/cadence-actions'
 import { Template } from '@/lib/actions/template-actions'
-import { X, Loader2, Plus, Trash2, GripVertical } from 'lucide-react'
+import { X, Loader2, Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 
 interface CadenceBuilderModalProps {
     isOpen: boolean
     onClose: () => void
     templates: Template[]
+    initialCadence?: Cadence
 }
 
 type StepDraft = {
+    id?: string
     step_number: number
     day_offset: number
     action_type: 'call' | 'email' | 'whatsapp' | 'linkedin_message' | 'linkedin_connection'
@@ -21,7 +23,7 @@ type StepDraft = {
     template_id: string
 }
 
-export function CadenceBuilderModal({ isOpen, onClose, templates }: CadenceBuilderModalProps) {
+export function CadenceBuilderModal({ isOpen, onClose, templates, initialCadence }: CadenceBuilderModalProps) {
     const [isPending, startTransition] = useTransition()
 
     const [name, setName] = useState('')
@@ -29,6 +31,32 @@ export function CadenceBuilderModal({ isOpen, onClose, templates }: CadenceBuild
     const [steps, setSteps] = useState<StepDraft[]>([
         { step_number: 1, day_offset: 1, action_type: 'call', title: 'Intro Call', description: '', template_id: '' }
     ])
+
+    useEffect(() => {
+        if (isOpen) {
+            if (initialCadence) {
+                setName(initialCadence.name)
+                setDescription(initialCadence.description || '')
+                if (initialCadence.steps && initialCadence.steps.length > 0) {
+                    setSteps(initialCadence.steps.map(s => ({
+                        id: s.id,
+                        step_number: s.step_number,
+                        day_offset: s.day_offset,
+                        action_type: s.action_type,
+                        title: s.title,
+                        description: s.description || '',
+                        template_id: s.template_id || ''
+                    })))
+                } else {
+                    setSteps([{ step_number: 1, day_offset: 1, action_type: 'call', title: 'Intro Call', description: '', template_id: '' }])
+                }
+            } else {
+                setName('')
+                setDescription('')
+                setSteps([{ step_number: 1, day_offset: 1, action_type: 'call', title: 'Intro Call', description: '', template_id: '' }])
+            }
+        }
+    }, [isOpen, initialCadence])
 
     const addStep = () => {
         const lastStep = steps[steps.length - 1]
@@ -52,6 +80,23 @@ export function CadenceBuilderModal({ isOpen, onClose, templates }: CadenceBuild
         setSteps(reindexedStats)
     }
 
+    const moveStep = (index: number, direction: 'up' | 'down') => {
+        if (direction === 'up' && index === 0) return
+        if (direction === 'down' && index === steps.length - 1) return
+
+        const newSteps = [...steps]
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+        // Swap
+        [newSteps[index], newSteps[targetIndex]] = [newSteps[targetIndex], newSteps[index]];
+
+        // Re-index step numbers just in case, though logically they swap places. 
+        // But usually step_number implies order.
+        const reindexed = newSteps.map((s, i) => ({ ...s, step_number: i + 1 }))
+
+        setSteps(reindexed)
+    }
+
     const updateStep = (index: number, field: keyof StepDraft, value: any) => {
         const newSteps = [...steps]
         newSteps[index] = { ...newSteps[index], [field]: value }
@@ -69,10 +114,16 @@ export function CadenceBuilderModal({ isOpen, onClose, templates }: CadenceBuild
                     template_id: s.template_id || null
                 }))
 
-                await createCadence(name, description, cleanSteps)
+                if (initialCadence) {
+                    await updateCadence(initialCadence.id, name, description, cleanSteps)
+                } else {
+                    await createCadence(name, description, cleanSteps)
+                }
+
                 onClose()
             } catch (e) {
                 alert('Failed to save cadence')
+                console.error(e)
             }
         })
     }
@@ -84,7 +135,7 @@ export function CadenceBuilderModal({ isOpen, onClose, templates }: CadenceBuild
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
                 <div className="flex justify-between items-center p-6 border-b border-slate-100 flex-shrink-0">
                     <div>
-                        <h2 className="text-xl font-semibold text-slate-900">Cadence Builder</h2>
+                        <h2 className="text-xl font-semibold text-slate-900">{initialCadence ? 'Edit Cadence' : 'New Cadence'}</h2>
                         <p className="text-sm text-slate-500">Define your outreach steps</p>
                     </div>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -123,10 +174,25 @@ export function CadenceBuilderModal({ isOpen, onClose, templates }: CadenceBuild
                     <div className="space-y-4">
                         {steps.map((step, index) => (
                             <div key={index} className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm relative group">
-                                <div className="absolute left-2 top-4 text-slate-300">
-                                    <GripVertical className="w-5 h-5" />
+                                <div className="absolute left-2 top-4 flex flex-col gap-1 text-slate-300">
+                                    <button
+                                        onClick={() => moveStep(index, 'up')}
+                                        disabled={index === 0}
+                                        className="hover:text-slate-500 disabled:opacity-30"
+                                        title="Move Up"
+                                    >
+                                        <ChevronUp className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => moveStep(index, 'down')}
+                                        disabled={index === steps.length - 1}
+                                        className="hover:text-slate-500 disabled:opacity-30"
+                                        title="Move Down"
+                                    >
+                                        <ChevronDown className="w-5 h-5" />
+                                    </button>
                                 </div>
-                                <div className="pl-6 grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                                <div className="pl-10 grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
                                     {/* Day Offset */}
                                     <div className="md:col-span-1">
                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Day</label>
@@ -224,3 +290,5 @@ export function CadenceBuilderModal({ isOpen, onClose, templates }: CadenceBuild
         </div>
     )
 }
+
+
