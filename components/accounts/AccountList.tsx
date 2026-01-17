@@ -1,26 +1,34 @@
 'use client'
 
-import { Account, deleteAccount } from '@/lib/actions/account-actions'
+import { Account } from '@/lib/actions/account-actions'
 import { Card } from '@/components/ui/Card'
-import { BadgeCheck } from 'lucide-react'
-import clsx from 'clsx'
-import { ActionDropdown } from '@/components/ui/ActionDropdown'
-import { AccountModal } from '@/components/accounts/AccountModal'
-import { useState, useTransition } from 'react'
+import { BadgeCheck, Filter } from 'lucide-react'
+import { AccountRow } from './AccountRow'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useCallback } from 'react'
 
 export function AccountList({ accounts }: { accounts: Account[] }) {
-    const [editingAccount, setEditingAccount] = useState<Account | null>(null)
-    const [filterTier, setFilterTier] = useState<string>('all')
-    const [isPending, startTransition] = useTransition()
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
 
-    const handleDelete = (id: string) => {
-        startTransition(async () => {
-            try {
-                await deleteAccount(id)
-            } catch (e) {
-                alert('Failed to delete account')
+    const filterTier = searchParams.get('tier') || 'all'
+
+    const createQueryString = useCallback(
+        (name: string, value: string) => {
+            const params = new URLSearchParams(searchParams.toString())
+            if (value === 'all' || !value) {
+                params.delete(name)
+            } else {
+                params.set(name, value)
             }
-        })
+            return params.toString()
+        },
+        [searchParams]
+    )
+
+    const updateFilter = (name: string, value: string) => {
+        router.push(pathname + '?' + createQueryString(name, value))
     }
 
     if (accounts.length === 0) {
@@ -42,11 +50,15 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
 
     return (
         <>
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end mb-4 gap-3 items-center">
+                <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm font-medium text-slate-700">Filters:</span>
+                </div>
                 <select
                     className="block w-40 rounded-md border-0 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-[#00A1E0] sm:text-sm sm:leading-6"
                     value={filterTier}
-                    onChange={(e) => setFilterTier(e.target.value)}
+                    onChange={(e) => updateFilter('tier', e.target.value)}
                 >
                     <option value="all">All Tiers</option>
                     <option value="Tier 1">Tier 1</option>
@@ -54,60 +66,34 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
                 </select>
             </div>
 
-            <Card noPadding className="overflow-hidden">
-                <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                        <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Account Name</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tier</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Portfolio</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Industry</th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-200">
-                        {filteredAccounts.map((account) => (
-                            <tr key={account.id} className="hover:bg-slate-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="font-medium text-slate-900">{account.name}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={clsx(
-                                        'px-2 py-1 text-xs font-medium rounded-full',
-                                        account.tier === 'Tier 1' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
-                                    )}>
-                                        {account.tier}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex flex-wrap gap-1">
-                                        {account.portfolio?.map((p) => (
-                                            <span key={p} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                                {p}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                    {account.industry || '-'}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <ActionDropdown
-                                        onEdit={() => setEditingAccount(account)}
-                                        onDelete={() => handleDelete(account.id)}
-                                    />
-                                </td>
+            <Card noPadding>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Account Name</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tier</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Portfolio</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Industry</th>
+                                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-200">
+                            {filteredAccounts.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                        No accounts match your filters.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredAccounts.map((account) => (
+                                    <AccountRow key={account.id} account={account} />
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </Card>
-
-            <AccountModal
-                isOpen={!!editingAccount}
-                onClose={() => setEditingAccount(null)}
-                account={editingAccount}
-            />
         </>
     )
 }

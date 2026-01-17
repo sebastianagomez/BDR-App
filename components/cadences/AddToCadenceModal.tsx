@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { assignContactToCadence, Cadence } from '@/lib/actions/cadence-actions'
+import { addContactToCadence, Cadence } from '@/lib/actions/cadence-actions'
 import { X, Loader2, Play } from 'lucide-react'
 
 interface AddToCadenceModalProps {
@@ -19,7 +19,7 @@ export function AddToCadenceModal({ isOpen, onClose, cadences, contactId }: AddT
         if (!selectedCadenceId) return
         startTransition(async () => {
             try {
-                await assignContactToCadence(contactId, selectedCadenceId)
+                await addContactToCadence(contactId, selectedCadenceId)
                 onClose()
             } catch (e) {
                 alert('Failed to assign cadence')

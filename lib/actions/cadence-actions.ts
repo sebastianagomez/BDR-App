@@ -1,8 +1,9 @@
 'use server'
 
 import { supabase } from '@/lib/supabase/client'
+import { supabaseServer } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { addBusinessDays } from '@/lib/utils/date-utils'
+import { addBusinessDays } from '@/lib/utils/business-days'
 
 export type CadenceStep = {
     id: string
@@ -62,7 +63,7 @@ export async function createCadence(name: string, description: string, steps: Om
 
     // 2. Create Steps
     if (steps.length > 0) {
-        const stepsToInsert = steps.map(s => ({
+        const stepsToInsert = steps.map((s) => ({
             cadence_id: cadence.id,
             step_number: s.step_number,
             day_offset: s.day_offset,
@@ -87,59 +88,50 @@ export async function createCadence(name: string, description: string, steps: Om
     return cadence
 }
 
-// CRITICAL LOGIC: Assign contact to cadence
-export async function assignContactToCadence(contactId: string, cadenceId: string) {
-    // 1. Check if already active? (Skip for MVP uniqueness check)
+export async function addContactToCadence(
+    contactId: string,
+    cadenceId: string,
+    startDate: Date = new Date()
+) {
+    // 1. Create contact_cadence record
+    const { data: contactCadence, error: ccError } = await supabaseServer
+        .from('contact_cadences')
+        .insert({
+            contact_id: contactId,
+            cadence_id: cadenceId,
+            current_step: 1,
+            status: 'active',
+            start_date: startDate.toISOString().split('T')[0]
+        })
+        .select()
+        .single();
 
-    // 2. Get Cadence Steps (specifically the first one)
-    const { data: steps, error: stepsError } = await supabase
+    if (ccError) throw new Error('Failed to add contact to cadence');
+
+    // 2. Get first step
+    const { data: firstStep } = await supabaseServer
         .from('cadence_steps')
         .select('*')
         .eq('cadence_id', cadenceId)
         .order('step_number', { ascending: true })
         .limit(1)
+        .single();
 
-    if (stepsError || !steps || steps.length === 0) {
-        throw new Error('Cadence has no steps')
-    }
+    if (!firstStep) throw new Error('Cadence has no steps');
 
-    const firstStep = steps[0]
+    // 3. Calculate due date (business days)
+    const dueDate = addBusinessDays(startDate, firstStep.day_offset);
 
-    // 3. Create contact_cadence record
-    const { data: cc, error: ccError } = await supabase
-        .from('contact_cadences')
-        .insert({
-            contact_id: contactId,
-            cadence_id: cadenceId,
-            current_step: firstStep.step_number,
-            status: 'active',
-            start_date: new Date().toISOString()
-        })
-        .select('id')
-        .single()
-
-    if (ccError || !cc) {
-        console.error('Error assigning to cadence:', ccError)
-        throw new Error('Failed to assign contact to cadence')
-    }
-
-    // 4. Create first Daily Task
-    const dueDate = addBusinessDays(new Date(), firstStep.day_offset)
-
-    const { error: taskError } = await supabase
+    // 4. Create first task
+    await supabaseServer
         .from('daily_tasks')
         .insert({
-            contact_cadence_id: cc.id,
+            contact_cadence_id: contactCadence.id,
             step_id: firstStep.id,
-            due_date: dueDate.toISOString().split('T')[0], // Store as YYYY-MM-DD
+            due_date: dueDate.toISOString().split('T')[0],
             status: 'pending'
-        })
+        });
 
-    if (taskError) {
-        console.error('Error creating initial task:', taskError)
-        throw new Error('Failed to create initial task')
-    }
-
-    revalidatePath('/contacts')
-    revalidatePath('/tasks')
+    revalidatePath('/tasks');
+    revalidatePath('/contacts');
 }

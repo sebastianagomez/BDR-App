@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Sidebar from '@/components/layout/Sidebar'
+import { ShortcutProvider } from '@/components/providers/ShortcutProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,15 +19,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} h-screen flex overflow-hidden bg-slate-50`}>
-        <Sidebar />
-        <main className="flex-1 overflow-auto">
-          <div className="h-full flex flex-col">
-            {/* Header could go here if separate from page content */}
-            <div className="flex-1 p-8">
-              {children}
+        <ShortcutProvider>
+          <Sidebar />
+          <main className="flex-1 overflow-auto">
+            <div className="h-full flex flex-col">
+              {/* Header could go here if separate from page content */}
+              <div className="flex-1 p-8">
+                {children}
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </ShortcutProvider>
       </body>
     </html>
   )

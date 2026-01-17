@@ -28,47 +28,73 @@ export function ImportContactsModal({ isOpen, onClose }: ImportContactsModalProp
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            transformHeader: (header) => {
-                return header.trim().toLowerCase().replace(/^[\uFEFF]/, '') // Remove BOM and whitespace
-            },
+            transformHeader: (h) => h.trim().toLowerCase(),
             complete: (results) => {
-                const data = results.data.map((row: any) => {
-                    // Normalize keys to our expected format
-                    // Because transformHeader lowercased them, we check for variations
-                    const entry: any = {}
+                const contacts = results.data
+                    .map((row: any) => ({
+                        name: row.name || row.Name || '',
+                        company: row.company || row.Company || '',
+                        title: row.title || row.Title || row.cargo || '',
+                        email: row.email || row.Email || '',
+                        phone: row.phone || row.Phone || row.telefono || '',
+                        linkedin_url: row.linkedin_url || row['linkedin url'] || row.linkedin || ''
+                    }))
+                    .filter((c: any) => c.name.trim() && c.company.trim());
 
-                    // Helper to find value by possible keys
-                    const findValue = (keys: string[]) => {
-                        for (const key of keys) {
-                            // find key in row that contains our target string
-                            const rowKey = Object.keys(row).find(k => k.includes(key))
-                            if (rowKey && row[rowKey]) return row[rowKey].trim()
-                        }
-                        return ''
-                    }
-
-                    entry.name = findValue(['name'])
-                    entry.company = findValue(['company', 'account', 'organization'])
-                    entry.title = findValue(['title', 'position', 'role'])
-                    entry.email = findValue(['email', 'mail'])
-                    entry.phone = findValue(['phone', 'mobile', 'cell'])
-                    entry.linkedin = findValue(['linkedin', 'linked in', 'profile']) // "linkedin url" becomes "linkedin url" -> matches "linkedin"
-
-                    return entry
-                }).filter((item: any) => item.name && item.company)
-
-                if (data.length === 0) {
-                    setError("No valid contacts found. CSV must have at least 'Name' and 'Company' columns.")
+                if (contacts.length === 0) {
+                    setError('No valid contacts. Name and Company required.');
                     setPreview([])
-                } else {
-                    setError(null)
-                    setPreview(data)
+                    return;
                 }
+
+                // Match companies to existing accounts is tricky client-side without fetching all accounts.
+                // The user code suggests: 
+                // const { data: account } = await supabase.from('accounts')... inside map.
+                // But this is async inside Papa.parse synchronous callback? No, complete is a callback.
+                // But we can't await inside map easily for all rows without Promise.all.
+                // The user provided logic:
+                /*
+                const contactsWithAccounts = await Promise.all(contacts.map(...))
+                */
+                // So I need to make the complete callback async or handle the promise inside.
+
+                // Let's implement the matching logic if we have access to supabase client here.
+                // Import supabase client? Using import { supabase } from '@/lib/supabase/client'
+
+                startTransition(async () => {
+                    // Since I cannot pass async to complete directly or it's void, I'll do the processing here.
+                    // Wait, I can't await inside the sync callback easily unless I trigger a new async flow.
+                    // I will run the async matching logic here.
+
+                    const { createClient } = await import('@supabase/supabase-js')
+                    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+                    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                    const supabase = createClient(supabaseUrl, supabaseKey)
+
+                    const contactsWithAccounts = await Promise.all(
+                        contacts.map(async (contact: any) => {
+                            const { data: account } = await supabase
+                                .from('accounts')
+                                .select('id')
+                                .ilike('name', contact.company)
+                                .single(); // ilike for case insensitive matching
+
+                            return {
+                                ...contact,
+                                account_id: account?.id || null,
+                                needs_new_account: !account
+                            };
+                        })
+                    );
+
+                    setPreview(contactsWithAccounts);
+                    setError(null);
+                })
             },
             error: (err) => {
-                setError('Failed to parse CSV: ' + err.message)
+                setError('Error parsing CSV: ' + err.message);
             }
-        })
+        });
     }
 
     const handleImport = () => {

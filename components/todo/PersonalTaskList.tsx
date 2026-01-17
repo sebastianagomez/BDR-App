@@ -26,7 +26,7 @@ export function PersonalTaskList({ initialTasks }: { initialTasks: PersonalTask[
         })
     }
 
-    const handleToggle = (id: string, status: 'pending' | 'completed') => {
+    const handleToggle = (id: string, status: 'pending' | 'done') => {
         startTransition(async () => {
             await togglePersonalTask(id, status)
         })
@@ -41,7 +41,7 @@ export function PersonalTaskList({ initialTasks }: { initialTasks: PersonalTask[
 
     // Group tasks
     const pendingTasks = initialTasks.filter(t => t.status === 'pending')
-    const completedTasks = initialTasks.filter(t => t.status === 'completed')
+    const completedTasks = initialTasks.filter(t => t.status === 'done')
 
     const overdue = pendingTasks.filter(t => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)))
     const today = pendingTasks.filter(t => !t.due_date || isToday(parseISO(t.due_date))) // No date = Today by default preference? Or "Inbox"? Let's put in Today for focus.
@@ -133,7 +133,7 @@ export function PersonalTaskList({ initialTasks }: { initialTasks: PersonalTask[
                         )}
                         {completedTasks.map(task => (
                             <div key={task.id} className="flex items-center group opacity-60">
-                                <button onClick={() => handleToggle(task.id, 'completed')} className="text-green-500 mr-3">
+                                <button onClick={() => handleToggle(task.id, 'done')} className="text-green-500 mr-3">
                                     <CheckSquare className="w-5 h-5" />
                                 </button>
                                 <span className="text-slate-500 line-through text-sm flex-1">{task.title}</span>

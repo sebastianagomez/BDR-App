@@ -24,7 +24,7 @@ export default async function TasksPage() {
                     <p className="text-slate-500 mt-1 max-w-sm mx-auto">No pending tasks for today. Go find some new prospects!</p>
                 </Card>
             ) : (
-                <TaskList tasks={tasks} />
+                <TaskList initialTasks={tasks} />
             )}
         </div>
     )

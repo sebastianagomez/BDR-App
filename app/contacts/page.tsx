@@ -3,6 +3,7 @@ import { getAccounts } from '@/lib/actions/account-actions'
 import { getCadences } from '@/lib/actions/cadence-actions'
 import { ContactList } from '@/components/contacts/ContactList'
 import { AddContactWrapper } from '@/components/contacts/AddContactWrapper'
+import { Suspense } from 'react'
 
 export default async function ContactsPage() {
     const contacts = await getContacts()
@@ -20,7 +21,9 @@ export default async function ContactsPage() {
                 <AddContactWrapper accounts={accounts} />
             </div>
 
-            <ContactList contacts={contacts} cadences={cadences} accounts={accounts} />
+            <Suspense fallback={<div>Loading contacts...</div>}>
+                <ContactList contacts={contacts} cadences={cadences} accounts={accounts} />
+            </Suspense>
         </div>
     )
 }

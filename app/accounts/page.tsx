@@ -1,7 +1,8 @@
 import { getAccounts } from '@/lib/actions/account-actions'
 import { AccountList } from '@/components/accounts/AccountList'
 import { Plus } from 'lucide-react'
-import Link from 'next/link' // Or use a client component button to open modal
+import Link from 'next/link'
+import { Suspense } from 'react'
 
 export default async function AccountsPage() {
     const accounts = await getAccounts()
@@ -21,7 +22,9 @@ export default async function AccountsPage() {
                 <AddAccountWrapper />
             </div>
 
-            <AccountList accounts={accounts} />
+            <Suspense fallback={<div>Loading accounts...</div>}>
+                <AccountList accounts={accounts} />
+            </Suspense>
         </div>
     )
 }

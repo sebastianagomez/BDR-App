@@ -1,8 +1,9 @@
 'use server'
 
 import { supabase } from '@/lib/supabase/client'
+import { supabaseServer } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { addBusinessDays } from '@/lib/utils/date-utils'
+import { addBusinessDays } from '@/lib/utils/business-days'
 import { addDays, parseISO, differenceInDays } from 'date-fns'
 
 export type DailyTask = {
@@ -83,82 +84,81 @@ export async function getDailyTasks() {
     return data as unknown as DailyTask[]
 }
 
-export async function completeTask(taskId: string, contactCadenceId: string, currentStepNumber: number) {
-    // 1. Mark task as completed
-    const { error: updateError } = await supabase
+export async function completeTask(taskId: string) {
+    // 1. Get task info with all relations
+    const { data: task } = await supabaseServer
         .from('daily_tasks')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .select(`
+      *,
+      contact_cadences!inner(
+        *,
+        contacts(*)
+      ),
+      cadence_steps!inner(*)
+    `)
         .eq('id', taskId)
+        .single();
 
-    if (updateError) throw new Error('Failed to complete task')
+    if (!task) throw new Error('Task not found');
 
-    // 2. Find Next Step
-    // We need to know which cadence this is. 
-    // We can fetch the contact_cadence to get the cadence_id
-    const { data: cc, error: ccError } = await supabase
+    // 2. Mark as completed
+    await supabaseServer
+        .from('daily_tasks')
+        .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+        })
+        .eq('id', taskId);
+
+    // 3. Update contact_cadence current_step
+    // Note: task.cadence_steps is a single object because (one-to-many from steps to tasks? No, steps to tasks is one-to-many. Task to step is many-to-one).
+    // The select query above joins cadence_steps!inner.
+    const nextStepNumber = task.cadence_steps.step_number + 1;
+
+    await supabaseServer
         .from('contact_cadences')
-        .select('cadence_id')
-        .eq('id', contactCadenceId)
-        .single()
+        .update({
+            current_step: nextStepNumber,
+            last_action_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', task.contact_cadence_id);
 
-    if (ccError || !cc) throw new Error('Contact cadence not found')
-
-    const nextStepNumber = currentStepNumber + 1
-
-    const { data: nextStep, error: stepError } = await supabase
+    // 4. Get next step
+    const { data: nextStep } = await supabaseServer
         .from('cadence_steps')
         .select('*')
-        .eq('cadence_id', cc.cadence_id)
+        .eq('cadence_id', task.contact_cadences.cadence_id)
         .eq('step_number', nextStepNumber)
-        .single()
+        .single();
 
+    // 5. If there's a next step, create task
     if (nextStep) {
-        // NEXT STEP EXISTS -> Schedule it.
-        // Calculate due date. 
-        // Logic: due_date = TODAY + (nextStep.day_offset - currentStep.day_offset) ??
-        // Actually, user requirement says: "due_date = hoy + (next_step.day_offset - current_step.day_offset)"
-        // But we need the current step's day offset. 
-        // Let's simplified: due_date = START_DATE + nextStep.day_offset.
-        // OR: due_date = TODAY + (gap between steps).
-        // Let's use the GAP approach to be dynamic based on when they completed the previous task.
+        const daysSinceStart = nextStep.day_offset;
+        // Calculate due date based on cadence start date OR dynamic relative to previous step?
+        // User code says: const startDate = new Date(task.contact_cadences.start_date);
+        // const dueDate = addBusinessDays(startDate, daysSinceStart); 
+        // This implies absolute scheduling from start.
+        const startDate = new Date(task.contact_cadences.start_date);
+        const dueDate = addBusinessDays(startDate, daysSinceStart);
 
-        // We need current step to calculate gap.
-        const { data: currentStep } = await supabase
-            .from('cadence_steps')
-            .select('day_offset')
-            .eq('cadence_id', cc.cadence_id)
-            .eq('step_number', currentStepNumber)
-            .single()
-
-        const gap = (nextStep.day_offset - (currentStep?.day_offset || 0))
-        const nextDate = addBusinessDays(new Date(), Math.max(1, gap)) // Ensure at least 1 day or follow gap
-
-        // Create new task
-        await supabase.from('daily_tasks').insert({
-            contact_cadence_id: contactCadenceId,
-            step_id: nextStep.id,
-            due_date: nextDate.toISOString().split('T')[0], // Store as YYYY-MM-DD
-            status: 'pending'
-        })
-
-        // Update contact cadence current step
-        await supabase.from('contact_cadences').update({
-            current_step: nextStepNumber,
-            last_action_date: new Date().toISOString()
-        }).eq('id', contactCadenceId)
-
+        await supabaseServer
+            .from('daily_tasks')
+            .insert({
+                contact_cadence_id: task.contact_cadence_id,
+                step_id: nextStep.id,
+                due_date: dueDate.toISOString().split('T')[0],
+                status: 'pending'
+            });
     } else {
-        // NO NEXT STEP -> COMPLETED
-        await supabase.from('contact_cadences').update({
-            status: 'completed',
-            last_action_date: new Date().toISOString()
-        }).eq('id', contactCadenceId)
-
-        // Also update contact status?
-        // await supabase.from('contacts').update({ status: 'contacted' })... // Logic depends on meaningful outcome
+        // Cadence finished
+        await supabaseServer
+            .from('contact_cadences')
+            .update({ status: 'completed' })
+            .eq('id', task.contact_cadence_id);
     }
 
-    revalidatePath('/tasks')
+    revalidatePath('/tasks');
+    revalidatePath('/');
 }
 
 export async function skipTask(taskId: string, contactCadenceId: string, currentStepNumber: number, note?: string) {

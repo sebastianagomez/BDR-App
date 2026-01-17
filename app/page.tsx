@@ -1,110 +1,151 @@
 import Link from 'next/link'
-import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
-import { CheckSquare, Phone, Mail, Linkedin, ArrowRight, Activity, Calendar, ListTodo } from 'lucide-react'
-import { getDashboardStats, getRecentActivity, getActiveCadences } from '@/lib/actions/dashboard-actions'
+import { Card } from '@/components/ui/Card'
+import { supabaseServer } from '@/lib/supabase/server'
+import { Phone, Mail, Linkedin, ListTodo, Activity, CheckSquare } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import clsx from 'clsx'
+import { SmartInsights } from '@/components/dashboard/SmartInsights'
 
-export default async function Home() {
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
+function formatRelativeTime(dateString: string) {
+  if (!dateString) return ''
+  return formatDistanceToNow(new Date(dateString), { addSuffix: true })
+}
 
-  const [stats, recentActivity, activeCadences] = await Promise.all([
-    getDashboardStats(),
-    getRecentActivity(),
-    getActiveCadences()
-  ])
+export default async function DashboardPage() {
+  const today = new Date().toISOString().split('T')[0];
+
+  // Real queries: Fetch ALL pending tasks due <= today (includes overdue)
+  const { data: allPendingTasks, error: tasksError } = await supabaseServer
+    .from('daily_tasks')
+    .select('*, cadence_steps(*)')
+    .lte('due_date', today) // Changed from eq to lte to include overdue
+    .eq('status', 'pending');
+
+  if (tasksError) console.error('Error fetching pending tasks:', tasksError)
+
+  const safePendingTasks = allPendingTasks || []
+
+  // Calculate specific counts
+  const overdueCount = safePendingTasks.filter((t: any) => t.due_date < today).length
+
+  const callCount = safePendingTasks.filter((t: any) =>
+    t.cadence_steps?.action_type === 'call'
+  ).length;
+
+  const emailCount = safePendingTasks.filter((t: any) =>
+    t.cadence_steps?.action_type === 'email'
+  ).length;
+
+  const linkedinCount = safePendingTasks.filter((t: any) =>
+    t.cadence_steps?.action_type?.includes('linkedin')
+  ).length;
+
+  const { count: tier1Count } = await supabaseServer
+    .from('accounts')
+    .select('*', { count: 'exact', head: true })
+    .eq('tier', 'Tier 1')
+    .eq('is_active', true);
+
+  const { count: tier2Count } = await supabaseServer
+    .from('accounts')
+    .select('*', { count: 'exact', head: true })
+    .eq('tier', 'Tier 2')
+    .eq('is_active', true);
+
+  const { count: contactsInCadence } = await supabaseServer
+    .from('contact_cadences')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'active');
+
+  // Active Cadences
+  const { data: activeCadences } = await supabaseServer
+    .from('cadences')
+    .select(`
+      *,
+      contact_cadences!inner(id)
+    `)
+    .eq('is_active', true);
+
+  const cadencesWithCounts = (activeCadences || []).map((c: any) => ({
+    ...c,
+    active_contacts: c.contact_cadences.length
+  }));
+
+  // Recent Activity (last 5 completed tasks)
+  const { data: recentActivity } = await supabaseServer
+    .from('daily_tasks')
+    .select(`
+      *,
+      contact_cadences!inner(
+        contacts!inner(name, title),
+        cadences!inner(name)
+      ),
+      cadence_steps!inner(action_type, title)
+    `)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(5);
+
+  // Personal tasks for today
+  const { data: personalTasks } = await supabaseServer
+    .from('personal_tasks')
+    .select('*')
+    .eq('due_date', today)
+    .eq('status', 'pending');
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">{currentDate}</p>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+        <div className="text-sm text-slate-500">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
-        <Link href="/tasks" className="btn-primary flex items-center">
-          <CheckSquare className="w-5 h-5 mr-2" />
-          Start Daily Tasks
-        </Link>
       </div>
 
-      {/* Main Stats Row */}
+      <SmartInsights overdueCount={overdueCount} />
+
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border-l-4 border-l-[#00A1E0]">
-          <h3 className="text-slate-500 font-medium mb-1">Pending Actions Today</h3>
-          <div className="flex items-baseline">
-            <span className="text-4xl font-bold text-slate-900">{stats.pendingTasks}</span>
-            <span className="text-slate-400 ml-2">tasks</span>
-          </div>
-          <div className="mt-4 flex space-x-4 text-sm text-slate-600">
-            <div className="flex items-center">
-              <Phone className="w-4 h-4 mr-1 text-slate-400" /> {stats.pendingCalls}
-            </div>
-            <div className="flex items-center">
-              <Mail className="w-4 h-4 mr-1 text-slate-400" /> {stats.pendingEmails}
-            </div>
-            <div className="flex items-center">
-              <Linkedin className="w-4 h-4 mr-1 text-slate-400" /> {stats.pendingLinkedin}
-            </div>
+          <h3 className="text-slate-500 font-medium mb-1">Actions for Today</h3>
+          <p className="text-4xl font-bold text-slate-900">{safePendingTasks.length}</p>
+          <div className="flex gap-4 text-sm text-slate-600 mt-2">
+            <span className="flex items-center"><Phone className="w-4 h-4 mr-1 text-slate-400" /> {callCount}</span>
+            <span className="flex items-center"><Mail className="w-4 h-4 mr-1 text-slate-400" /> {emailCount}</span>
+            <span className="flex items-center"><Linkedin className="w-4 h-4 mr-1 text-slate-400" /> {linkedinCount}</span>
           </div>
         </Card>
 
         <Card>
           <h3 className="text-slate-500 font-medium mb-1">Active Accounts</h3>
-          <div className="flex items-baseline">
-            <span className="text-4xl font-bold text-slate-900">{stats.activeAccounts}</span>
-          </div>
-          <div className="mt-4 text-sm text-slate-600">
-            <span className="text-emerald-600 font-medium">{stats.tier1Accounts} Tier 1</span>
-            <span className="mx-2">•</span>
-            <span>{stats.tier2Accounts} Tier 2</span>
-          </div>
+          <p className="text-4xl font-bold text-slate-900">{(tier1Count || 0) + (tier2Count || 0)}</p>
+          <p className="text-sm text-slate-600 mt-2">
+            <span className="text-emerald-600 font-medium">{tier1Count || 0} Tier 1</span> • {tier2Count || 0} Tier 2
+          </p>
         </Card>
 
         <Card>
           <h3 className="text-slate-500 font-medium mb-1">Contacts in Cadence</h3>
-          <div className="flex items-baseline">
-            <span className="text-4xl font-bold text-slate-900">{stats.contactsInCadence}</span>
-          </div>
-          <div className="mt-4 text-sm text-slate-600">
-            Active in {stats.activeCadencesCount} cadences
-          </div>
+          <p className="text-4xl font-bold text-slate-900">{contactsInCadence || 0}</p>
+          <p className="text-sm text-slate-600 mt-2">Active in cadences</p>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity */}
-        <Card noPadding className="h-full lg:col-span-1">
-          <CardHeader className="flex justify-between items-center">
-            <CardTitle>Recent Activity</CardTitle>
-            <Link href="/tasks" className="text-sm text-[#00A1E0] hover:underline flex items-center">
-              View full <ArrowRight className="w-4 h-4 ml-1" />
-            </Link>
-          </CardHeader>
-          <div className="divide-y divide-slate-100">
-            {recentActivity.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">
-                No recent activity found.
-              </div>
+        {/* Active Cadences */}
+        <Card className="lg:col-span-1">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+            <Activity className="w-5 h-5 mr-2 text-blue-500" />
+            Active Cadences
+          </h3>
+          <div className="space-y-2">
+            {cadencesWithCounts.length === 0 ? (
+              <p className="text-slate-500 text-sm">No active cadences.</p>
             ) : (
-              recentActivity.map((activity) => (
-                <div key={activity.id} className="p-4 flex items-center">
-                  <div className="bg-emerald-100 text-emerald-600 p-2 rounded-full hidden sm:block">
-                    <CheckSquare className="w-4 h-4" />
-                  </div>
-                  <div className="ml-0 sm:ml-3">
-                    <p className="text-sm font-medium text-slate-900 truncate max-w-[150px]">
-                      {activity.contactName}
-                    </p>
-                    <p className="text-xs text-slate-500">{activity.actionType.replace('_', ' ')}</p>
-                  </div>
-                  <span className="ml-auto text-xs text-slate-400">
-                    {formatDistanceToNow(new Date(activity.completedAt), { addSuffix: true }).replace('about ', '')}
+              cadencesWithCounts.map((cad: any) => (
+                <div key={cad.id} className="flex justify-between py-2 border-b border-slate-50 last:border-0">
+                  <span className="font-medium text-slate-700">{cad.name}</span>
+                  <span className="text-slate-500 text-sm">
+                    {cad.active_contacts} contacts
                   </span>
                 </div>
               ))
@@ -112,97 +153,52 @@ export default async function Home() {
           </div>
         </Card>
 
-        {/* Active Cadences Summary */}
-        <Card className="h-full lg:col-span-1">
-          <div className="flex items-center justify-between mb-4">
-            <CardTitle>Active Cadences</CardTitle>
-            <Link href="/cadences" className="text-sm text-[#00A1E0] hover:underline">Manage</Link>
-          </div>
-          <div className="space-y-4">
-            {activeCadences.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 border border-dashed rounded-lg">
-                No active cadences found.
-              </div>
+        {/* Recent Activity */}
+        <Card className="lg:col-span-1">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+            <CheckSquare className="w-5 h-5 mr-2 text-emerald-500" />
+            Recent Activity
+          </h3>
+          <div className="space-y-3">
+            {(!recentActivity || recentActivity.length === 0) ? (
+              <p className="text-slate-500 text-sm">No recent activity.</p>
             ) : (
-              activeCadences.slice(0, 5).map((c) => (
-                <div key={c.id} className="flex justify-between items-center p-3 border border-slate-100 rounded-lg hover:bg-slate-50">
-                  <div className="flex items-center min-w-0">
-                    <Activity className="w-5 h-5 text-blue-500 mr-3 flex-shrink-0" />
-                    <span className="font-medium text-slate-700 truncate">{c.name}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-slate-500 ml-2">
-                    <Users className="w-4 h-4 mr-1" />
-                    {c.activeContacts}
-                  </div>
+              recentActivity.map((task: any) => (
+                <div key={task.id} className="py-2 border-b border-slate-50 last:border-0">
+                  <p className="font-medium text-slate-800 text-sm">
+                    Completed {task.cadence_steps.action_type.replace('_', ' ')} with{' '}
+                    {task.contact_cadences.contacts.name}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {task.contact_cadences.contacts.title} •{' '}
+                    {task.contact_cadences.cadences.name}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {formatRelativeTime(task.completed_at)}
+                  </p>
                 </div>
               ))
             )}
           </div>
         </Card>
 
-        {/* Personal To-Do Widget */}
-        <Card className="h-full lg:col-span-1">
-          <div className="flex items-center justify-between mb-4">
-            <CardTitle className="flex items-center">
-              <ListTodo className="w-5 h-5 mr-2 text-purple-500" />
-              My To-Do
-            </CardTitle>
-            <Link href="/todo" className="text-sm text-[#00A1E0] hover:underline">View All</Link>
-          </div>
-          <div className="space-y-3">
-            {stats.personalTasks.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 border border-dashed rounded-lg">
-                Reference your goals!
-                <div className="mt-2 text-xs">No pending tasks.</div>
-              </div>
-            ) : (
-              stats.personalTasks.map((task) => (
-                <div key={task.id} className="flex items-start p-2 border-b border-slate-50 last:border-0 hover:bg-slate-50 rounded">
-                  <div className={clsx("w-2 h-2 mt-2 rounded-full mr-3 flex-shrink-0",
-                    task.priority === 'high' ? 'bg-red-500' :
-                      task.priority === 'medium' ? 'bg-amber-500' : 'bg-slate-300'
-                  )} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{task.title}</p>
-                    {task.due_date && (
-                      <p className="text-xs text-slate-500 flex items-center mt-0.5">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {task.due_date}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-            <div className="pt-2">
-              <Link href="/todo" className="text-xs text-slate-400 hover:text-slate-600 block text-center border-t border-slate-100 pt-2 dashed">
-                + Add New Task
-              </Link>
+        {/* Personal Tasks Widget */}
+        <Card className="lg:col-span-1">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+            <ListTodo className="w-5 h-5 mr-2 text-purple-500" />
+            Personal Tasks Today
+          </h3>
+          <div className="flex flex-col h-[calc(100%-2rem)]">
+            <div className="flex-1">
+              <p className="text-3xl font-bold text-slate-900">{(personalTasks || []).length}</p>
+              <p className="text-slate-500 text-sm">pending tasks</p>
             </div>
+            <Link href="/todo" className="text-blue-600 hover:underline text-sm mt-4 inline-block">
+              View all →
+            </Link>
           </div>
         </Card>
       </div>
     </div>
-  )
-}
-
-// Helper icon component for Active Cadences
-function Users({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
+  );
 }
