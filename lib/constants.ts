@@ -1,0 +1,8 @@
+export const AE_LIST = [
+    'AE 1',
+    'AE 2',
+    'AE 3',
+    'AE 4',
+    'AE 5',
+    'AE 6'
+] as const;

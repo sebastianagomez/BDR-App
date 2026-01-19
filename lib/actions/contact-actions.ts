@@ -1,6 +1,7 @@
 'use server'
 
 import { supabase } from '@/lib/supabase/client'
+import { supabaseServer } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export type Contact = {
@@ -31,7 +32,7 @@ export type Contact = {
 }
 
 export async function getContacts() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
         .from('contacts')
         .select(`
       *,
@@ -69,40 +70,44 @@ export async function getContacts() {
     // Fetching pending tasks separately might be cleaner or join `daily_tasks`.
 
     const contactsWithContext = await Promise.all(data.map(async (contact: any) => {
-        const activeCadence = contact.contact_cadences?.find((cc: any) => cc.status === 'active');
+        try {
+            const activeCadence = contact.contact_cadences?.find((cc: any) => cc.status === 'active');
 
-        let nextTask = null;
-        if (activeCadence) {
-            const { data: task } = await supabase
-                .from('daily_tasks')
-                .select('due_date, cadence_steps(action_type)')
-                .eq('contact_cadence_id', activeCadence.id)
-                .eq('status', 'pending')
-                .order('due_date', { ascending: true })
-                .limit(1)
-                .single();
+            let nextTask = null;
+            if (activeCadence) {
+                const { data: task } = await supabaseServer
+                    .from('daily_tasks')
+                    .select('due_date, cadence_steps(action_type)')
+                    .eq('contact_cadence_id', activeCadence.id)
+                    .eq('status', 'pending')
+                    .order('due_date', { ascending: true })
+                    .limit(1)
+                    .maybeSingle();
 
-            if (task) {
-                // cadence_steps can be an array depending on supabase generated types, usually it's an object for standard FK, 
-                // but here it seems strict TS or runtime check suggests array. Safe access:
-                const step = Array.isArray(task.cadence_steps) ? task.cadence_steps[0] : task.cadence_steps;
-                nextTask = {
-                    due_date: task.due_date,
-                    action_type: step?.action_type
-                };
+                if (task) {
+                    const step = Array.isArray(task.cadence_steps) ? task.cadence_steps[0] : task.cadence_steps;
+                    nextTask = {
+                        due_date: task.due_date,
+                        action_type: step?.action_type
+                    };
+                }
             }
-        }
 
-        return {
-            ...contact,
-            active_cadence: activeCadence ? {
-                name: activeCadence.cadences.name,
-                current_step: activeCadence.current_step,
-                total_steps: activeCadence.cadences.cadence_steps?.length || 0,
-                last_action_date: activeCadence.last_action_date
-            } : null,
-            next_task: nextTask
-        };
+            return {
+                ...contact,
+                active_cadence: activeCadence ? {
+                    name: activeCadence.cadences?.name || 'Unknown Cadence',
+                    current_step: activeCadence.current_step,
+                    total_steps: activeCadence.cadences?.cadence_steps?.length || 0,
+                    // Use contact's last activity if available (more precise), falling back to cadence last action
+                    last_action_date: contact.last_activity_date || activeCadence.last_action_date
+                } : null,
+                next_task: nextTask
+            };
+        } catch (error) {
+            console.error('Error processing contact context:', error);
+            return contact;
+        }
     }));
 
     return contactsWithContext as Contact[]
@@ -249,7 +254,7 @@ export async function importContacts(contacts: any[]) {
 }
 
 export async function getContactById(id: string) {
-    const { data: contact, error } = await supabase
+    const { data: contact, error } = await supabaseServer
         .from('contacts')
         .select(`
       *,
@@ -279,7 +284,7 @@ export async function getContactById(id: string) {
     }
 
     // Fetch history (completed tasks)
-    const { data: history } = await supabase
+    const { data: history } = await supabaseServer
         .from('daily_tasks')
         .select(`
             *,
@@ -299,14 +304,14 @@ export async function getContactById(id: string) {
     const activeCadence = contact.contact_cadences?.find((cc: any) => cc.status === 'active');
     let nextTask = null;
     if (activeCadence) {
-        const { data: task } = await supabase
+        const { data: task } = await supabaseServer
             .from('daily_tasks')
             .select('due_date, cadence_steps(action_type)')
             .eq('contact_cadence_id', activeCadence.id)
             .eq('status', 'pending')
             .order('due_date', { ascending: true })
             .limit(1)
-            .single();
+            .maybeSingle();
 
         if (task) {
             const step = Array.isArray(task.cadence_steps) ? task.cadence_steps[0] : task.cadence_steps;
@@ -320,9 +325,9 @@ export async function getContactById(id: string) {
     return {
         ...contact,
         active_cadence: activeCadence ? {
-            name: activeCadence.cadences.name,
+            name: activeCadence.cadences?.name || 'Unknown Cadence',
             current_step: activeCadence.current_step,
-            total_steps: activeCadence.cadences.cadence_steps?.length || 0,
+            total_steps: activeCadence.cadences?.cadence_steps?.length || 0,
             last_action_date: activeCadence.last_action_date
         } : null,
         next_task: nextTask,

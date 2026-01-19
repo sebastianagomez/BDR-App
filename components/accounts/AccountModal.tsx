@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { createAccount, updateAccount, Account } from '@/lib/actions/account-actions'
+import { AE_LIST } from '@/lib/constants'
 import { X, Loader2 } from 'lucide-react'
 
 interface AccountModalProps {
@@ -86,6 +87,22 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
                             <option value="Tier 1">Tier 1</option>
                             <option value="Tier 2">Tier 2</option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="assigned_ae" className="block text-sm font-medium text-slate-700 mb-1">Account Executive</label>
+                        <select
+                            name="assigned_ae"
+                            id="assigned_ae"
+                            defaultValue={account?.assigned_ae || ''}
+                            className="input-field"
+                        >
+                            <option value="">Unassigned</option>
+                            {AE_LIST.map(ae => (
+                                <option key={ae} value={ae}>{ae}</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">Assign to an AE for reporting</p>
                     </div>
 
                     <div>

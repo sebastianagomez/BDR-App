@@ -4,6 +4,8 @@ import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { Suspense } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AccountsPage() {
     const accounts = await getAccounts()
 

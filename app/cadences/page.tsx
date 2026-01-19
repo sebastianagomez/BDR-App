@@ -3,6 +3,8 @@ import { getTemplates } from '@/lib/actions/template-actions'
 import { CadenceList } from '@/components/cadences/CadenceList'
 import { AddCadenceWrapper } from '@/components/cadences/AddCadenceWrapper'
 
+export const dynamic = 'force-dynamic'
+
 export default async function CadencesPage() {
     const cadences = await getCadences()
     const templates = await getTemplates() // Needed for the builder

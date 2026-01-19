@@ -1,6 +1,7 @@
 'use server'
 
 import { supabase } from '@/lib/supabase/client'
+import { supabaseServer } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export type Account = {
@@ -10,14 +11,21 @@ export type Account = {
     portfolio: string[]
     industry: string | null
     notes: string | null
+    assigned_ae: string | null
+    contacts_count?: number
     is_active: boolean
     created_at: string
 }
 
+
+
 export async function getAccounts() {
-    const { data, error } = await supabase
+    const { data: accounts, error } = await supabaseServer
         .from('accounts')
-        .select('*')
+        .select(`
+            *,
+            contacts(count)
+        `)
         .order('created_at', { ascending: false })
 
     if (error) {
@@ -25,7 +33,13 @@ export async function getAccounts() {
         return []
     }
 
-    return data as Account[]
+    // Transform to include count property flat
+    const transformed = (accounts || []).map((a: any) => ({
+        ...a,
+        contacts_count: a.contacts?.[0]?.count || 0
+    }))
+
+    return transformed as Account[]
 }
 
 export async function createAccount(formData: FormData) {
@@ -33,17 +47,10 @@ export async function createAccount(formData: FormData) {
     const tier = formData.get('tier') as string
     const industry = formData.get('industry') as string
     const notes = formData.get('notes') as string
+    const assigned_ae = formData.get('assigned_ae') as string
 
-    // Handle multi-select for portfolio (simulated for now, expect JSON or comma separated in real form)
-    // For MVP, we'll check individual checkboxes if we were using standard form, 
-    // but let's assume we pass a JSON string for simplicity or handle it in the component.
-    // Here we'll just extract all keys starting with 'portfolio_' if we were doing it that way, 
-    // but let's assume the client passes a hidden input or we parse it differently.
-    // SIMPLIFICATION: The client will send "portfolio" as a comma-separated string if standard submit,
-    // or we use a more complex method. Let's rely on the client sending a JSON string or multiple values.
-
+    // Handle multi-select for portfolio
     const portfolioRaw = formData.getAll('portfolio')
-    // If coming from a standard multi-select/checkboxes, getAll returns an array of values.
     const portfolio = portfolioRaw.map(p => p.toString())
 
     const { error } = await supabase
@@ -54,6 +61,7 @@ export async function createAccount(formData: FormData) {
             industry,
             notes,
             portfolio,
+            assigned_ae: assigned_ae || null,
             is_active: true
         })
 
@@ -70,6 +78,8 @@ export async function updateAccount(id: string, formData: FormData) {
     const tier = formData.get('tier') as string
     const industry = formData.get('industry') as string
     const notes = formData.get('notes') as string
+    const assigned_ae = formData.get('assigned_ae') as string
+
     const portfolioRaw = formData.getAll('portfolio')
     const portfolio = portfolioRaw.map(p => p.toString())
 
@@ -80,7 +90,8 @@ export async function updateAccount(id: string, formData: FormData) {
             tier,
             industry,
             notes,
-            portfolio
+            portfolio,
+            assigned_ae: assigned_ae || null
         })
         .eq('id', id)
 
@@ -104,4 +115,38 @@ export async function deleteAccount(id: string) {
     }
 
     revalidatePath('/accounts')
+}
+
+// Stats by AE
+export async function getAccountStatsByAE() {
+    const { data: accounts } = await supabaseServer
+        .from('accounts')
+        .select(`
+            id,
+            assigned_ae,
+            tier,
+            contacts(id)
+        `)
+        .eq('is_active', true);
+
+    const statsByAE = accounts?.reduce((acc: any, account: any) => {
+        const ae = account.assigned_ae || 'Unassigned';
+        if (!acc[ae]) {
+            acc[ae] = {
+                totalAccounts: 0,
+                tier1: 0,
+                tier2: 0,
+                totalContacts: 0
+            };
+        }
+
+        acc[ae].totalAccounts++;
+        if (account.tier === 'Tier 1') acc[ae].tier1++;
+        if (account.tier === 'Tier 2') acc[ae].tier2++;
+        acc[ae].totalContacts += account.contacts?.length || 0;
+
+        return acc;
+    }, {} as Record<string, any>);
+
+    return statsByAE || {};
 }

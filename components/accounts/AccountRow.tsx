@@ -50,6 +50,20 @@ export function AccountRow({ account }: AccountRowProps) {
                         ))}
                     </div>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                    {account.assigned_ae ? (
+                        <span className="text-sm font-medium text-blue-600">
+                            {account.assigned_ae}
+                        </span>
+                    ) : (
+                        <span className="text-sm text-slate-400">Unassigned</span>
+                    )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-slate-600">
+                        {account.contacts_count || 0} contacts
+                    </span>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                     {account.industry || '-'}
                 </td>
@@ -81,24 +95,24 @@ export function AccountRow({ account }: AccountRowProps) {
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
+
+                    {isEditOpen && (
+                        <AccountModal
+                            isOpen={isEditOpen}
+                            onClose={() => setIsEditOpen(false)}
+                            account={account}
+                        />
+                    )}
+
+                    {isAddContactOpen && (
+                        <ContactModal
+                            isOpen={isAddContactOpen}
+                            onClose={() => setIsAddContactOpen(false)}
+                            accounts={[account]}
+                        />
+                    )}
                 </td>
-            </tr>
-
-            {isEditOpen && (
-                <AccountModal
-                    isOpen={isEditOpen}
-                    onClose={() => setIsEditOpen(false)}
-                    account={account}
-                />
-            )}
-
-            {isAddContactOpen && (
-                <ContactModal
-                    isOpen={isAddContactOpen}
-                    onClose={() => setIsAddContactOpen(false)}
-                    accounts={[account]}
-                />
-            )}
+            </tr >
         </>
     )
 }

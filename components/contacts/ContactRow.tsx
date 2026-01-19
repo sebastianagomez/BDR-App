@@ -54,8 +54,8 @@ export function ContactRow({ contact, cadences, accounts, selected, onSelect }: 
 
     return (
         <>
-            <tr className={clsx("hover:bg-slate-50 group transition-colors", selected && "bg-blue-50/50 hover:bg-blue-50")}>
-                <td className="pl-6 py-4 whitespace-nowrap w-4">
+            <tr className={clsx("hover:bg-slate-50 group transition-colors border-b border-slate-100 last:border-0", selected && "bg-blue-50/50 hover:bg-blue-50")}>
+                <td className="pl-6 py-4 whitespace-nowrap w-12">
                     <input
                         type="checkbox"
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-600 h-4 w-4"
@@ -64,68 +64,96 @@ export function ContactRow({ contact, cadences, accounts, selected, onSelect }: 
                     />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                    <Link href={`/contacts/${contact.id}`} className="font-medium text-slate-900 hover:text-blue-600 hover:underline">
-                        {contact.name}
-                    </Link>
-                    <div className="text-xs text-slate-500 md:hidden">{contact.title}</div>
-                    <div className="flex gap-2 mt-1 md:hidden">
-                        {contact.email && <Mail className="h-3 w-3 text-gray-400" />}
-                        {contact.phone && <Phone className="h-3 w-3 text-gray-400" />}
+                    <div className="flex flex-col gap-1">
+                        <Link href={`/contacts/${contact.id}`} className="font-medium text-slate-900 hover:text-blue-600 hover:underline">
+                            {contact.name}
+                        </Link>
+                        <div className="flex gap-2">
+                            {contact.email && (
+                                <a href={`mailto:${contact.email}`} className="text-slate-400 hover:text-blue-600 transition-colors">
+                                    <Mail className="h-3 w-3" />
+                                </a>
+                            )}
+                            {contact.phone && (
+                                <a href={`tel:${contact.phone}`} className="text-slate-400 hover:text-blue-600 transition-colors">
+                                    <Phone className="h-3 w-3" />
+                                </a>
+                            )}
+                            {contact.linkedin_url && (
+                                <a
+                                    href={contact.linkedin_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-slate-400 hover:text-[#0077b5] transition-colors"
+                                >
+                                    <Linkedin className="h-3 w-3" />
+                                </a>
+                            )}
+                        </div>
                     </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-slate-900 font-medium">{contact.accounts?.name || '-'}</div>
-                    {contact.accounts?.tier && (
-                        <span className={clsx(
-                            "inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset mt-1",
-                            contact.accounts.tier === 'Tier 1' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' : 'bg-blue-50 text-blue-700 ring-blue-600/20'
-                        )}>
-                            {contact.accounts.tier}
-                        </span>
-                    )}
+                    <div className="flex flex-col gap-1">
+                        <span className="text-sm text-slate-900 font-medium">{contact.accounts?.name || '-'}</span>
+                        {contact.accounts?.tier && (
+                            <span className={clsx(
+                                "badge w-fit",
+                                contact.accounts.tier === 'Tier 1' ? 'badge-success' : 'badge-blue'
+                            )}>
+                                {contact.accounts.tier}
+                            </span>
+                        )}
+                    </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
                     {contact.title || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
                     {contact.active_cadence ? (
-                        <div className="flex flex-col">
+                        <div className="flex flex-col gap-0.5">
                             <span className="text-sm font-medium text-slate-700">{contact.active_cadence.name}</span>
                             <span className="text-xs text-slate-500">
                                 Step {contact.active_cadence.current_step}/{contact.active_cadence.total_steps}
                             </span>
                         </div>
                     ) : (
-                        <span className="text-slate-400 text-xs">-</span>
+                        <span className="text-slate-400 text-xs">—</span>
                     )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap hidden xl:table-cell">
                     {contact.active_cadence?.last_action_date ? (
-                        <span className="text-sm text-slate-600">
-                            {new Date(contact.active_cadence.last_action_date).toLocaleDateString()}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            {/* Assuming check-circle for completed tasks generally, or logic based on action type if available in history. For simplicity: */}
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                            <span className="text-xs text-slate-600">
+                                {new Date(contact.active_cadence.last_action_date).toLocaleDateString()}
+                            </span>
+                        </div>
                     ) : (
                         <span className="text-slate-400 text-xs">No activity</span>
                     )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                     {contact.next_task ? (
-                        <div className="flex items-center text-sm text-slate-700">
-                            <div className={clsx("w-2 h-2 rounded-full mr-2",
-                                new Date(contact.next_task.due_date) < new Date() ? 'bg-red-500' : 'bg-blue-500'
-                            )} />
-                            {contact.next_task.action_type.replace('_', ' ')}
-                            <span className="text-xs text-slate-500 ml-1">
-                                ({new Date(contact.next_task.due_date).toLocaleDateString()})
+                        <div className="flex items-center gap-2">
+                            {/* Icon based on action type */}
+                            {contact.next_task.action_type === 'call' && <Phone className="w-3 h-3 text-purple-500" />}
+                            {contact.next_task.action_type === 'email' && <Mail className="w-3 h-3 text-blue-500" />}
+                            {contact.next_task.action_type.includes('linkedin') && <Linkedin className="w-3 h-3 text-sky-600" />}
+
+                            <span className={clsx("text-xs",
+                                new Date(contact.next_task.due_date) < new Date() ? "text-red-600 font-medium" : "text-slate-600"
+                            )}>
+                                {new Date(contact.next_task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                             </span>
                         </div>
                     ) : (
                         !contact.active_cadence && (
                             <button
                                 onClick={() => setIsCadenceOpen(true)}
-                                className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                                className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                             >
-                                + Add to Cadence
+                                <Play className="w-3 h-3" /> Add to Cadence
                             </button>
                         )
                     )}
@@ -134,70 +162,50 @@ export function ContactRow({ contact, cadences, accounts, selected, onSelect }: 
                     {getStatusBadge(contact.status)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="flex gap-1 mr-2">
-                            {contact.email && <a href={`mailto:${contact.email}`} className="text-slate-400 hover:text-slate-600 p-1"><Mail className="h-4 w-4" /></a>}
-                            {contact.phone && <a href={`tel:${contact.phone}`} className="text-slate-400 hover:text-slate-600 p-1"><Phone className="h-4 w-4" /></a>}
-                            {contact.linkedin_url && (
-                                <a
-                                    href={contact.linkedin_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 p-1"
-                                >
-                                    <Linkedin className="h-4 w-4" />
-                                </a>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger className="btn-icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                            </DropdownMenuItem>
+                            {!contact.active_cadence && (
+                                <DropdownMenuItem onClick={() => setIsCadenceOpen(true)}>
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Add to Cadence
+                                </DropdownMenuItem>
                             )}
-                        </div>
-
-                        {!contact.active_cadence && (
-                            <button
-                                onClick={() => setIsCadenceOpen(true)}
-                                className="text-slate-400 hover:text-[#00A1E0] tooltip p-1 rounded-full hover:bg-slate-100 transition-colors"
-                                title="Add to Cadence"
+                            <DropdownMenuItem
+                                onClick={handleDelete}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
-                                <Play className="w-4 h-4" />
-                            </button>
-                        )}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger className="p-2 hover:bg-gray-100 rounded text-slate-400 hover:text-slate-600">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
-                                    <Pencil className="h-4 w-4 mr-2" />
-                                    Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={handleDelete}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {isEditOpen && (
+                        <ContactModal
+                            isOpen={isEditOpen}
+                            onClose={() => setIsEditOpen(false)}
+                            contact={contact}
+                            accounts={accounts}
+                        />
+                    )}
+
+                    {isCadenceOpen && (
+                        <AddToCadenceModal
+                            isOpen={isCadenceOpen}
+                            onClose={() => setIsCadenceOpen(false)}
+                            cadences={cadences}
+                            contactId={contact.id}
+                        />
+                    )}
                 </td>
             </tr>
-
-            {isEditOpen && (
-                <ContactModal
-                    isOpen={isEditOpen}
-                    onClose={() => setIsEditOpen(false)}
-                    contact={contact}
-                    accounts={accounts}
-                />
-            )}
-
-            {isCadenceOpen && (
-                <AddToCadenceModal
-                    isOpen={isCadenceOpen}
-                    onClose={() => setIsCadenceOpen(false)}
-                    cadences={cadences}
-                    contactId={contact.id}
-                />
-            )}
         </>
     )
 }

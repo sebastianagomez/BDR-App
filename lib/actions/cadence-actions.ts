@@ -28,7 +28,7 @@ export type Cadence = {
 
 
 export async function getCadences() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
         .from('cadences')
         .select(`
       *,
@@ -43,7 +43,7 @@ export async function getCadences() {
     }
 
     // Sort steps and count active contacts
-    const dataWithCounts = data.map((c: any) => {
+    const dataWithCounts = (data || []).map((c: any) => {
         c.steps?.sort((a: any, b: any) => a.step_number - b.step_number)
         const activeCount = c.contact_cadences?.filter((cc: any) => cc.status === 'active').length || 0;
         return { ...c, active_contacts_count: activeCount }
@@ -196,6 +196,12 @@ export async function addContactToCadence(
 
     if (!firstStep) throw new Error('Cadence has no steps');
 
+    // NUEVO: Actualizar status del contacto
+    await supabaseServer
+        .from('contacts')
+        .update({ status: 'in_cadence' })
+        .eq('id', contactId);
+
     // 3. Calculate due date (business days)
     const dueDate = addBusinessDays(startDate, firstStep.day_offset);
 
@@ -260,9 +266,9 @@ export async function getCadenceContacts(cadenceId: string) {
             ...cc.contacts,
             company: cc.contacts.accounts.name // Extraer company name de accounts
         },
-        step: stepsMap.get(cc.current_step) || { 
-            step_number: cc.current_step, 
-            title: 'Unknown Step' 
+        step: stepsMap.get(cc.current_step) || {
+            step_number: cc.current_step,
+            title: 'Unknown Step'
         }
     }));
 

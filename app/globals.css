@@ -4,6 +4,7 @@
   --color-salesforce-blue: #00A1E0;
   --color-salesforce-dark-blue: #0176D3;
   --color-salesforce-navy: #032D60;
+  --color-linkedin: #0077b5;
 }
 
 @layer base {
@@ -13,6 +14,7 @@
 }
 
 @layer components {
+  /* Buttons */
   .btn-primary {
     @apply bg-salesforce-blue hover:bg-salesforce-dark-blue text-white font-medium px-4 py-2 rounded-md transition-colors shadow-sm;
   }
@@ -21,11 +23,113 @@
     @apply bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-medium px-4 py-2 rounded-md transition-colors shadow-sm;
   }
 
+  .btn-ghost {
+    @apply text-slate-600 hover:text-salesforce-blue hover:bg-slate-50 font-medium px-3 py-1.5 rounded-md transition-colors;
+  }
+  
+  .btn-link {
+    @apply text-salesforce-blue hover:text-salesforce-dark-blue font-medium hover:underline transition-colors;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors;
+  }
+
+  /* Cards */
   .card {
     @apply bg-white rounded-lg shadow-sm border border-slate-200 p-6;
   }
 
+  .stat-card {
+    @apply bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow;
+  }
+  
+  .stat-card.primary {
+    @apply border-l-4 border-salesforce-blue;
+  }
+
+  .stat-mini {
+    @apply bg-white p-3 rounded border border-slate-200 flex flex-col items-center justify-center text-center;
+  }
+  
+  .stat-mini .label {
+    @apply text-xs text-slate-500 font-medium uppercase tracking-wider mb-1;
+  }
+  
+  .stat-mini .value {
+    @apply text-xl font-bold text-slate-900;
+  }
+
+  /* Inputs */
   .input-field {
     @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-salesforce-blue focus:border-transparent;
+  }
+  
+  .select-field {
+    @apply rounded-md border-slate-300 py-1.5 pl-3 pr-10 text-slate-900 focus:ring-salesforce-blue focus:border-salesforce-blue sm:text-sm sm:leading-6;
+  }
+
+  /* Task Items */
+  .task-item {
+    @apply flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors;
+  }
+  
+  .task-item-compact {
+    @apply flex items-center justify-between gap-2 p-2 rounded hover:bg-slate-50 text-sm;
+  }
+
+  /* Timeline */
+  .timeline {
+    @apply border-l-2 border-slate-100 ml-3 pl-6 space-y-6 py-2;
+  }
+  
+  .timeline-item {
+    @apply relative;
+  }
+  
+  .timeline-dot {
+    @apply absolute -left-[31px] bg-white border-2 border-slate-200 w-4 h-4 rounded-full;
+  }
+  
+  .timeline-dot.active {
+    @apply border-salesforce-blue bg-salesforce-blue;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .badge-yellow {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .badge-gray {
+    @apply bg-slate-100 text-slate-800;
+  }
+  
+  .badge-blue {
+    @apply bg-blue-100 text-blue-800;
+  }
+  
+  .badge-success {
+    @apply bg-emerald-100 text-emerald-800;
+  }
+  
+  .badge-error {
+    @apply bg-red-100 text-red-800;
+  }
+
+  /* Utilities */
+  .empty-state-detailed {
+    @apply text-center py-16 px-8 bg-slate-50 rounded-lg border border-dashed border-slate-300;
+  }
+
+  .quick-action-btn {
+    @apply w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200;
+  }
+  
+  .section-title {
+    @apply text-lg font-semibold mb-4 flex items-center gap-2 text-slate-900;
   }
 }

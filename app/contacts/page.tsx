@@ -5,6 +5,8 @@ import { ContactList } from '@/components/contacts/ContactList'
 import { AddContactWrapper } from '@/components/contacts/AddContactWrapper'
 import { Suspense } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ContactsPage() {
     const contacts = await getContacts()
     const accounts = await getAccounts()

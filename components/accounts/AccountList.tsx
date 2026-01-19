@@ -1,6 +1,7 @@
 'use client'
 
 import { Account } from '@/lib/actions/account-actions'
+import { AE_LIST } from '@/lib/constants'
 import { Card } from '@/components/ui/Card'
 import { BadgeCheck, Filter } from 'lucide-react'
 import { AccountRow } from './AccountRow'
@@ -13,6 +14,7 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
     const searchParams = useSearchParams()
 
     const filterTier = searchParams.get('tier') || 'all'
+    const filterAe = searchParams.get('ae') || 'all'
 
     const createQueryString = useCallback(
         (name: string, value: string) => {
@@ -44,13 +46,19 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
     }
 
     const filteredAccounts = accounts.filter(account => {
-        if (filterTier === 'all') return true
-        return account.tier === filterTier
+        const matchesTier = filterTier === 'all' || account.tier === filterTier
+        const matchesAe = filterAe === 'all'
+            ? true
+            : filterAe === 'unassigned'
+                ? !account.assigned_ae
+                : account.assigned_ae === filterAe
+
+        return matchesTier && matchesAe
     })
 
     return (
         <>
-            <div className="flex justify-end mb-4 gap-3 items-center">
+            <div className="flex flex-wrap justify-end mb-4 gap-3 items-center">
                 <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-slate-400" />
                     <span className="text-sm font-medium text-slate-700">Filters:</span>
@@ -64,6 +72,18 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
                     <option value="Tier 1">Tier 1</option>
                     <option value="Tier 2">Tier 2</option>
                 </select>
+
+                <select
+                    className="block w-40 rounded-md border-0 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-[#00A1E0] sm:text-sm sm:leading-6"
+                    value={filterAe}
+                    onChange={(e) => updateFilter('ae', e.target.value)}
+                >
+                    <option value="all">All AEs</option>
+                    {AE_LIST.map(ae => (
+                        <option key={ae} value={ae}>{ae}</option>
+                    ))}
+                    <option value="unassigned">Unassigned</option>
+                </select>
             </div>
 
             <Card noPadding>
@@ -74,6 +94,8 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Account Name</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tier</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Portfolio</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Assigned AE</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"># Contacts</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Industry</th>
                                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
