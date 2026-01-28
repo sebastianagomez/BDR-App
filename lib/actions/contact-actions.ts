@@ -232,7 +232,7 @@ export async function importContacts(contacts: any[]) {
                 title: c.title,
                 email: c.email,
                 phone: c.phone,
-                linkedin_url: c.linkedin,
+                linkedin_url: c.linkedin_url || c.linkedin || null,
                 status: 'not_contacted'
             })
         }
